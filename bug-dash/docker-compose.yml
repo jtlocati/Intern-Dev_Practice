@@ -1,0 +1,17 @@
+services:
+  mysql:
+    image: mysql:8
+    container_name: bug-dash-mysql
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: bug_dash
+      MYSQL_USER: buguser
+      MYSQL_PASSWORD: bugpassword
+      MYSQL_ROOT_PASSWORD: rootpassword
+    volumes:
+      - bug-dash-mysql-data:/var/lib/mysql
+
+volumes:
+  bug-dash-mysql-data:
