@@ -1,25 +1,24 @@
-//NOTE: Temporary fix for a faulty endpoint causeing a mismatch on a dependency for nextauth
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-import { Session } from "inspector/promises";
-import { NextResponse, NextRequest } from "next/server";
+export function middleware(request: NextRequest) {
+  const sessionCookie =
+    request.cookies.get("authjs.session-token") ??
+    request.cookies.get("__Secure-authjs.session-token");
 
-export function middleware(request: NextRequest){
-  const Cookiemonster  = request.cookies.get("auth.session-token") ?? request.cookies.get("__Secure-authjs.session-token")
-
-  if (!Cookiemonster){
-    return NextResponse.redirect(new URL("/login", request.url))
+  if (!sessionCookie) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  return NextResponse.next()
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*","/projects/:path*", "/issues/:path*", "/users/:path*", "/settings/:path*",]
-}
-
-
-/*export { default } from "next-auth/middleware";
-
-export const config = {
-  matcher: ["/dashboard/:path*", "/projects/:path*", "/issues/:path*", "/users/:path*", "/settings/:path*"],
-};*/
+  matcher: [
+    "/dashboard/:path*",
+    "/projects/:path*",
+    "/issues/:path*",
+    "/users/:path*",
+    "/settings/:path*",
+  ],
+};

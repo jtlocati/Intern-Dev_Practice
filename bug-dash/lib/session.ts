@@ -3,6 +3,12 @@ import { auth } from "@/lib/auth";
 import type { SessionUser } from "@/types";
 import { Session } from "inspector/promises";
 
+/* Implement various levels of signin checks:
+    Bool: is signed in?
+    Bool: !is signed in? => login
+    Bool: !is Admin => /unauthorised
+*/
+
 export async function getCurrentUser(): Promise<SessionUser | null> {
     const session = await auth();
     if (!session?.user){
@@ -21,7 +27,7 @@ export async function requireUser(): Promise<SessionUser> {
 
 export async function requireAdmin(): Promise<SessionUser> {
     const user = await requireUser();
-    if (user.role !== "ADMIN"){
+    if (user.role.toUpperCase() !== "ADMIN"){
         redirect("/unauthorized")
     }
     return user;
