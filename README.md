@@ -1,5 +1,238 @@
 Intern Benchmark Project: Bug Tracker / Issue Management App 
 
+# Bug Tracker — Intern Task Guide
+
+Product spec lives in `README.md` — that's the source of truth for *what* the app
+should do. This doc is the *how* and *in what order*.
+
+---
+
+## 1. What's already built (do NOT rebuild these)
+
+- **Auth** — email/password login, sessions, route protection.
+  `lib/auth.ts`, `lib/session.ts`, `middleware.ts`, `app/(auth)/login/*`,
+  and the dashboard gate in `app/(dashboard)/layout.tsx`.
+- **Permissions** — role/ownership rules. `lib/permissions.ts`.
+- **Database schema** — User, Project, ProjectMember, Issue, Comment.
+  `prisma/schema.prisma`, client at `lib/prisma.ts`.
+- **Seed data** — an admin, three developers, two projects, issues, comments.
+  `prisma/seed.ts`.
+- **Shared contracts** — the TypeScript types and Zod schemas both teams build
+  against: `types/*`, `schemas/*`, `lib/validations.ts`, `lib/utils.ts`,
+  `lib/constants.ts`.
+
+If a task feels like it needs one of the above, it already exists — import it.
+
+---
+
+## 2. Getting started
+
+Run these once, from the `bug-dash` folder:
+
+    cp .env.example .env          # then fill in values if needed
+    npm install
+    docker compose up -d          # starts MySQL; wait ~20s on first boot
+    npx prisma db push            # creates tables from the schema
+    npx tsx prisma/seed.ts        # loads seed data
+    npm run dev                   # http://localhost:3000
+
+Test logins (all password: `password123`):
+
+- Admin:     admin@bugdash.dev
+- Developer: ben@bugdash.dev  /  cleo@bugdash.dev  /  dan@bugdash.dev
+
+Re-running the seed wipes and reloads the database — handy when you want a clean
+slate. Keep `npx tsc --noEmit` green as you work.
+
+---
+
+## 3. The contracts — build against these, don't invent your own
+
+**Data shapes** (what the backend returns / frontend renders) — in `types/`:
+- `IssueWithRelations`, `ProjectWithRelations`, `CommentWithAuthor`
+- `IssueFilters` (the filter/search object), `DashboardStats`
+- `SafeUser` / `UserSummary` (a user WITHOUT the password field)
+
+**Input shapes** (what forms send / actions validate) — in `schemas/`:
+- `projectSchema` → `ProjectInput`
+- `issueSchema` → `IssueInput`
+- `commentSchema` → `CommentInput`
+
+**Every server action returns `ActionResult<T>`** (from `types/`):
+- Success: `{ ok: true, data }`
+- Failure: `{ ok: false, error, fieldErrors? }`
+- Turn Zod errors into `fieldErrors` with `zodFieldErrors()` from `lib/validations.ts`.
+
+**Auth & permission helpers**:
+- `getCurrentUser()`, `requireUser()`, `requireAdmin()` — from `lib/session.ts`
+- `isAdmin`, `canAccessProject`, `canManageProjects`, `canEditIssue`,
+  `canDeleteIssue`, `canDeleteComment` — from `lib/permissions.ts`
+
+**Utilities** — from `lib/utils.ts`: `cn`, `formatDate`, `formatDateTime`,
+`formatRelativeTime`, `formatLabel` (e.g. IN_PROGRESS → "In Progress"),
+`getInitials`.
+
+---
+
+## 4. Rules that apply to EVERY task (this is the rubric)
+
+**Backend — every `data/*` function and `actions/*` action must:**
+1. Validate input with the matching Zod schema (`safeParse`).
+2. Get the current user (`requireUser`) and check permission before doing anything.
+3. Only return/modify data the user is allowed to see (scope queries by
+   membership/role — never return another team's data).
+4. Return an `ActionResult` (actions) — never throw raw errors to the UI.
+5. Revalidate affected pages after a write (`revalidatePath`).
+
+**Frontend — every page/list must handle all three states:**
+1. **Loading** — skeletons or spinners while data loads.
+2. **Empty** — a friendly "nothing here yet" message.
+3. **Error** — a clear error state, not a blank screen.
+   Plus: admin-only buttons hidden from developers, responsive on mobile,
+   and basic accessibility (labels, focus, semantic elements).
+
+---
+
+## 5. Build order (milestones)
+
+Work top to bottom. Each milestone is a vertical slice so the two tracks can
+integrate as they go. Agree on the action signatures at the start of each
+milestone before splitting off.
+
+### Milestone 1 — Projects
+Backend:
+- [ ] `data/projects.ts` — list projects the user can access, get one project
+      with owner/members/issue count (`ProjectWithRelations`).
+- [ ] `actions/project-actions.ts` — create / edit / delete project
+      (admin-only via `canManageProjects`), add/remove members.
+- [ ] `app/api/projects/route.ts` + `app/api/projects/[projectId]/route.ts` —
+      REST equivalents for Postman testing.
+Frontend:
+- [ ] `app/(dashboard)/projects/page.tsx` + `project-list.tsx` + `project-card.tsx`
+- [ ] `app/(dashboard)/projects/new/*` + `components/projects/project-form.tsx`
+- [ ] `app/(dashboard)/projects/[projectId]/*` (header, issues, members)
+- [ ] `app/(dashboard)/projects/[projectId]/edit/*`
+- [ ] `components/projects/project-delete-button.tsx` (admin only)
+Done when: an admin can create/edit/delete a project and see its members;
+a developer sees only their projects and no admin buttons.
+
+### Milestone 2 — Issues (the core of the app)
+Backend:
+- [ ] `data/issues.ts` — list issues (with filters — see Milestone 5), get one
+      issue with relations (`IssueWithRelations`).
+- [ ] `actions/issue-actions.ts` — create / edit / assign / change status /
+      change priority / delete (delete is admin-only; edit gated by `canEditIssue`).
+- [ ] `app/api/issues/route.ts` + `app/api/issues/[issueId]/route.ts`.
+Frontend:
+- [ ] `app/(dashboard)/issues/page.tsx` + `issue-table.tsx`
+- [ ] `app/(dashboard)/issues/new/*` + `components/issues/issue-form.tsx`
+- [ ] `app/(dashboard)/issues/[issueId]/*` (header, details)
+- [ ] `app/(dashboard)/issues/[issueId]/edit/*`
+- [ ] `components/issues/*` — `issue-card`, `assignee-select`,
+      `issue-status-badge`, `issue-priority-badge`, `issue-delete-button`
+Done when: issues can be created, viewed, edited, assigned, and have their
+status/priority changed; only admins see delete; developers can only edit issues
+assigned to them.
+
+### Milestone 3 — Comments
+Backend:
+- [ ] `data/comments.ts` — list comments for an issue (`CommentWithAuthor`).
+- [ ] `actions/comment-actions.ts` — add comment, delete comment
+      (own comment, or admin, via `canDeleteComment`).
+- [ ] `app/api/comments/route.ts` + `app/api/comments/[commentId]/route.ts`.
+Frontend:
+- [ ] `app/(dashboard)/issues/[issueId]/issue-comments.tsx` + `add-comment-form.tsx`
+- [ ] `components/comments/*` — `comment-list`, `comment-card`, `comment-form`,
+      `comment-delete-button`
+Done when: users can comment on an issue, see all comments with author + time,
+and delete their own (admins delete any).
+
+### Milestone 4 — Dashboard
+Backend:
+- [ ] `data/dashboard.ts` + `actions/dashboard-actions.ts` — produce a
+      `DashboardStats`: open issues, completed this week, project count,
+      high-urgency bugs (scoped to what the user can see).
+- [ ] `app/api/dashboard/route.ts`.
+Frontend:
+- [ ] `app/(dashboard)/dashboard/page.tsx` + `dashboard-cards.tsx` +
+      `dashboard-loading.tsx` — responsive metric-card grid with loading state.
+Done when: the four cards show correct numbers for the logged-in user.
+
+### Milestone 5 — Filtering & search
+Backend:
+- [ ] Extend `data/issues.ts` to read `IssueFilters` (status, priority,
+      assignee, project, search text) and filter the query. Pagination optional.
+Frontend:
+- [ ] `app/(dashboard)/issues/issue-filters.tsx` + `components/shared/search-input.tsx`
+- [ ] Reflect active filters in the URL query params; add a "clear filters" control.
+- [ ] `components/shared/pagination.tsx` if you did pagination.
+Done when: the issue list narrows by status/priority/assignee/project and text
+search, and filters survive a page refresh (they're in the URL).
+
+### Milestone 6 — Shell, states & polish
+Frontend:
+- [ ] `components/ui/*` — build the primitives you've been reaching for
+      (button, input, textarea, select, card, badge, modal, table, skeleton,
+      alert, empty-state) and refactor pages to use them.
+- [ ] `components/layout/*` — `app-navbar`, `app-sidebar`, `mobile-nav`,
+      `user-menu` (shows current user + logout), `page-header`. Role-aware nav.
+- [ ] `components/shared/*` — `loading-spinner`, `confirm-dialog`.
+- [ ] `app/(dashboard)/users/*` and `settings/page.tsx` (users list is admin-only).
+- [ ] Pass a responsive + accessibility check on every page.
+Done when: the app looks and works well on desktop and mobile, nav reflects
+role, and every list has loading/empty/error states.
+
+---
+
+## 6. Backend track — full checklist
+
+- [ ] `data/projects.ts`
+- [ ] `data/issues.ts` (+ filtering in Milestone 5)
+- [ ] `data/comments.ts`
+- [ ] `data/dashboard.ts`
+- [ ] `data/users.ts` (admin-only user list)
+- [ ] `actions/project-actions.ts`
+- [ ] `actions/issue-actions.ts`
+- [ ] `actions/comment-actions.ts`
+- [ ] `actions/dashboard-actions.ts`
+- [ ] `actions/user-actions.ts` (optional: change user role — admin only)
+- [ ] All 7 `app/api/**/route.ts` handlers + a Postman collection in `postman/`
+
+## 7. Frontend track — full checklist
+
+- [ ] `components/ui/*` (11 primitives)
+- [ ] `components/layout/*` (navbar, sidebar, mobile-nav, user-menu, page-header)
+- [ ] `components/shared/*` (search-input, pagination, confirm-dialog, loading-spinner)
+- [ ] Projects pages + `components/projects/*`
+- [ ] Issues pages + `components/issues/*`
+- [ ] Comments UI + `components/comments/*`
+- [ ] Dashboard page + cards
+- [ ] Users table + Settings page
+
+---
+
+## 8. Stretch goals (only after the above works)
+
+Kanban board, drag-and-drop status, tags/labels, due dates, activity log,
+dark mode, optimistic UI, pagination, admin user management, unit tests.
+
+---
+
+## 9. Before you submit
+
+- [ ] `npx tsc --noEmit` is clean and `npm run lint` passes.
+- [ ] App runs from a fresh clone following Section 2.
+- [ ] Every list has loading, empty, and error states.
+- [ ] Permissions verified: log in as a developer and confirm you CANNOT do
+      admin-only things or see other teams' data.
+- [ ] Clear, small git commits.
+- [ ] Open a Pull Request describing what you built and any decisions/trade-offs.
+
+
+
+
+
+
 1. Project Summary 
 
 The goal is to build a simple full-stack bug tracker using Next.js. 
