@@ -1,11 +1,14 @@
-import { AppSidebar } from "@/components/layout/app-sidebar";
-import { AppNavbar } from "@/components/layout/app-navbar";
+import { requireUser } from "@/lib/session";
+import AppNavbar from "@/components/layout/app-navbar";
+import AppSidebar from "@/components/layout/app-sidebar";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireUser();
+
   return (
     <div className="min-h-screen">
       <AppNavbar />
