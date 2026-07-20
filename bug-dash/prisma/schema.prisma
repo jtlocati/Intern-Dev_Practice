@@ -2,8 +2,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+
+
 datasource db {
   provider = "mysql"
+  //dont worry about ts, will throw error on any prisma version >- 6.0
   url      = env("DATABASE_URL")
 }
 
