@@ -1,21 +1,46 @@
-//check permissions shortcuts
-//NOTE: only admin can manage projects + can delete an issue
+// Permission helpers used by data functions, server actions, and UI.
+// Every rule funnels through here so behavior stays consistent.
+
 import type { SessionUser } from "@/types";
-import { isAscii } from "buffer";
-import { use } from "react";
 
 export function isAdmin(user: SessionUser): boolean {
-    return user.role.toUpperCase() === "ADMIN";
+  return user.role.toUpperCase() === "ADMIN";
 }
 
-export function canAccessPage(user: SessionUser, Project: {ownerId: string, memberIds: string[]}): boolean {
-    return isAdmin(user) || Project.ownerId === user.id || Project.memberIds.includes(user.id);
+// Admins manage all projects. Developers cannot create/edit/delete projects.
+export function canManageProjects(user: SessionUser): boolean {
+  return isAdmin(user);
 }
 
-export function canEditIssue (user: SessionUser, Issue: {assignid: string | null}): boolean {
-    return isAdmin(user) || Issue.assignid === user.id
+// A user can access a project if they are an admin, the owner, or a member.
+export function canAccessProject(
+  user: SessionUser,
+  project: { ownerId: string; members: { userId: string }[] }
+): boolean {
+  return (
+    isAdmin(user) ||
+    project.ownerId === user.id ||
+    project.members.some((m) => m.userId === user.id)
+  );
 }
 
-export function canDeleteComment(user: SessionUser, comment: {authorid: string}): boolean{
-    return isAdmin(user) || comment.authorid === user.id
+// A user can edit an issue if they are an admin or the assignee.
+export function canEditIssue(
+  user: SessionUser,
+  issue: { assigneeId: string | null }
+): boolean {
+  return isAdmin(user) || issue.assigneeId === user.id;
+}
+
+// Only admins can delete issues.
+export function canDeleteIssue(user: SessionUser): boolean {
+  return isAdmin(user);
+}
+
+// A user can delete a comment if they are an admin or the author.
+export function canDeleteComment(
+  user: SessionUser,
+  comment: { authorId: string }
+): boolean {
+  return isAdmin(user) || comment.authorId === user.id;
 }
