@@ -1,6 +1,6 @@
 'use client';
 import { useActionState, useEffect } from "react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import  { loginAction } from "@/actions/auth-actions";
 import { stat } from "fs";
 
