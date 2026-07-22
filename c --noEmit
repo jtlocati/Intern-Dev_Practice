@@ -1,0 +1,10 @@
+[33mf8a9bdc[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Add createProject server action with admin gate and Zod validation
+[33m5a793ca[m Fix permissions.ts: add canManageProjects/canDeleteIssue, correct field names
+[33mb9a8d4b[m Fix project-schema.ts: camelCase memberIds, remove unused import
+[33m038b212[m Add data/projects.ts: list and detail queries with access control
+[33mcdb4dc8[m Update login-form.tsx
+[33m6156677[m open evn exsamples
+[33m6d03bf5[m get rid of fluff
+[33me497009[m Update schema.prisma
+[33m7b6ffa5[m Update README.md
+[33m472d9c3[m update layout

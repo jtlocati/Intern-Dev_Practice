@@ -5,7 +5,7 @@ import LoginForm from "./login-form";
 export default async function Login() {
   const user = await getCurrentUser();
   if (user){
-    redirect("/dashboard")
+    redirect("/dahboard")
   }
   return(
     <main className="flex min-h-screen items-center justify-center p-4">
