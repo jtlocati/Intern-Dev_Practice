@@ -1,1 +1,339 @@
-{}
+{
+  "info": {
+    "name": "Bug Dash API",
+    "description": "REST endpoints for the bug-dash intern project. Auth is cookie-based (NextAuth credentials provider) — run the two requests in the Auth folder first with Postman's cookie jar enabled so the session cookie carries into every other request. Test logins (password123 for all): admin@bugdash.dev (ADMIN), ben@bugdash.dev / cleo@bugdash.dev / dan@bugdash.dev (DEVELOPER).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "type": "string" },
+    { "key": "csrfToken", "value": "", "type": "string" },
+    { "key": "projectId", "value": "", "type": "string" },
+    { "key": "issueId", "value": "", "type": "string" },
+    { "key": "commentId", "value": "", "type": "string" },
+    { "key": "userId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Get CSRF token",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/csrf", "host": ["{{baseUrl}}"], "path": ["api", "auth", "csrf"] },
+            "description": "NextAuth requires a CSRF token before a credentials sign-in. This also sets the csrf cookie — make sure Postman's cookie jar is on."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('csrfToken', body.csrfToken);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Sign in (credentials) — admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "email", "value": "admin@bugdash.dev" },
+                { "key": "password", "value": "password123" },
+                { "key": "csrfToken", "value": "{{csrfToken}}" },
+                { "key": "json", "value": "true" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/callback/credentials",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "callback", "credentials"]
+            },
+            "description": "Signs in as the seeded admin. Swap the email/password for one of the developer accounts (ben@bugdash.dev, cleo@bugdash.dev, dan@bugdash.dev) to test role-scoped behavior. On success, NextAuth sets the session cookie automatically for the rest of the collection."
+          },
+          "response": []
+        },
+        {
+          "name": "Sign out",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [{ "key": "csrfToken", "value": "{{csrfToken}}" }]
+            },
+            "url": { "raw": "{{baseUrl}}/api/auth/signout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "signout"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/projects", "host": ["{{baseUrl}}"], "path": ["api", "projects"] },
+            "description": "Admins get every project; developers get only projects they own or are a member of."
+          },
+          "response": []
+        },
+        {
+          "name": "Create project (admin only)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Project\",\n  \"description\": \"Created from the Postman collection.\",\n  \"memberIds\": []\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/projects", "host": ["{{baseUrl}}"], "path": ["api", "projects"] },
+            "description": "403 if the signed-in user isn't an admin. 400 with fieldErrors if name/description fail validation."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('projectId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get project by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{projectId}}"]
+            },
+            "description": "404 if the project doesn't exist or the caller can't access it."
+          },
+          "response": []
+        },
+        {
+          "name": "Update project (admin only)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Project (updated)\",\n  \"description\": \"Updated from the Postman collection.\",\n  \"memberIds\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{projectId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete project (admin only)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{projectId}}"]
+            },
+            "description": "Cascades: deletes the project's comments and issues first, then memberships, then the project."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Issues",
+      "item": [
+        {
+          "name": "List issues (filtered + paginated)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/issues?status=TODO&priority=HIGH&projectId={{projectId}}&search=login&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "issues"],
+              "query": [
+                { "key": "status", "value": "TODO", "description": "BACKLOG | TODO | IN_PROGRESS | IN_REVIEW | DONE" },
+                { "key": "priority", "value": "HIGH", "description": "LOW | MEDIUM | HIGH | CRITICAL" },
+                { "key": "assigneeId", "value": "", "disabled": true },
+                { "key": "projectId", "value": "{{projectId}}" },
+                { "key": "search", "value": "login", "description": "matches title or description" },
+                { "key": "page", "value": "1", "description": "1-based, page size is fixed at 10" }
+              ]
+            },
+            "description": "Every filter param is optional — omit any you don't want applied. Response: { issues: IssueWithRelations[], total: number }."
+          },
+          "response": []
+        },
+        {
+          "name": "Create issue",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman test issue\",\n  \"description\": \"Created from the Postman collection.\",\n  \"status\": \"BACKLOG\",\n  \"priority\": \"MEDIUM\",\n  \"projectId\": \"{{projectId}}\",\n  \"assigneeId\": null,\n  \"dueDate\": null\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/issues", "host": ["{{baseUrl}}"], "path": ["api", "issues"] },
+            "description": "403 if the signed-in user can't access the target project. The current session user becomes the reporter automatically."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('issueId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get issue by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/{{issueId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "issues", "{{issueId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update issue (assignee or admin only)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman test issue (updated)\",\n  \"description\": \"Updated from the Postman collection.\",\n  \"status\": \"IN_PROGRESS\",\n  \"priority\": \"HIGH\",\n  \"projectId\": \"{{projectId}}\",\n  \"assigneeId\": null,\n  \"dueDate\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/{{issueId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "issues", "{{issueId}}"]
+            },
+            "description": "403 if the signed-in user is neither an admin nor the issue's current assignee."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete issue (admin only)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/{{issueId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "issues", "{{issueId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "List comments for an issue",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/comments?issueId={{issueId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "comments"],
+              "query": [{ "key": "issueId", "value": "{{issueId}}" }]
+            },
+            "description": "400 if issueId is missing. Returns [] (not an error) if the issue doesn't exist or isn't accessible."
+          },
+          "response": []
+        },
+        {
+          "name": "Add comment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"issueId\": \"{{issueId}}\",\n  \"body\": \"Commented from the Postman collection.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/comments", "host": ["{{baseUrl}}"], "path": ["api", "comments"] },
+            "description": "body max length is 300 characters."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('commentId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Delete comment (author or admin only)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/comments/{{commentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "comments", "{{commentId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Get dashboard stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/dashboard", "host": ["{{baseUrl}}"], "path": ["api", "dashboard"] },
+            "description": "Response: { openIssues, completedperweek, ProjectCount, highUrgencyCount }, scoped to what the signed-in user can see."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

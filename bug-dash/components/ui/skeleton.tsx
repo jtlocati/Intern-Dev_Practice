@@ -1,7 +1,13 @@
-export default function Skeleton() {
+import * as React from "react";
+import { cn } from "@/lib/utils";
+
+export function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div>
-      <h1>Skeleton</h1>
-    </div>
+    <div
+      className={cn("animate-pulse rounded bg-gray-200", className)}
+      {...props}
+    />
   );
 }
+
+export default Skeleton;
