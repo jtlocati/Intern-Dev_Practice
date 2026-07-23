@@ -1,7 +1,15 @@
-export default function NewProjectForm() {
+'use client';
+
+import ProjectForm from "@/components/projects/project-form";
+import { createProjectAction } from "@/actions/project-actions";
+import type { UserSummary } from "@/types/user";
+
+export default function NewProjectForm({ users }: { users: UserSummary[] }) {
   return (
-    <div>
-      <h1>NewProjectForm</h1>
-    </div>
+    <ProjectForm
+      action={createProjectAction}
+      users={users}
+      submitLabel="Create project"
+    />
   );
 }
